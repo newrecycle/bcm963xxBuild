@@ -1,0 +1,6 @@
+#!/bin/sh
+# This file is Confidential Information of CUJO LLC.
+# Copyright (c) 2019 CUJO LLC. All rights reserved.
+
+# shellcheck source=cujo-iptables.sh
+. "$CUJO_HOME"/bin/cujo-iptables

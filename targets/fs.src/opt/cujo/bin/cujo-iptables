@@ -1,0 +1,39 @@
+#!/bin/sh
+# This file is Confidential Information of CUJO LLC.
+# Copyright (c) 2019 CUJO LLC. All rights reserved.
+
+# This sh has pipefail:
+# shellcheck disable=SC2039
+set -euo pipefail
+
+case $0 in
+    cujo-iptables | */cujo-iptables)
+        cmd=iptables
+        ;;
+    cujo-ip6tables | */cujo-ip6tables)
+        cmd=ip6tables
+        ;;
+    *)
+        echo >&2 "$0: called as neither cujo-iptables nor cujo-ip6tables, cannot determine what to do!"
+        exit 2
+        ;;
+esac
+
+wait=false
+args=
+for arg; do
+    if [ "$arg" = -w ] || [ "$arg" = --wait ]; then
+        wait=true
+    else
+        args="$args $arg"
+    fi
+done
+
+if $wait; then
+    echo >&2 "$0: warning: waiting (--wait / -w) not supported"
+fi
+
+# We want word splitting to happen and can't assume that the shell supports
+# arrays, so:
+# shellcheck disable=SC2086
+exec $cmd $args

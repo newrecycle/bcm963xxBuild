@@ -1,0 +1,22 @@
+#!/bin/sh
+# This file is Confidential Information of Cujo LLC.
+# Copyright (c) 2018-2019 CUJO LLC. All rights reserved.
+
+# shellcheck source=nf-chains.sh
+. "$CUJO_HOME"/bin/nf-chains
+
+create_chain() {
+	executable=$1
+	defchain=$2
+	shift; shift
+	FIREWALL_IPTABLES_FORCE_SYNC=1 ${executable} -N "$@" || ${executable} -F "$@"
+	${executable} -D "$defchain" -j "$@"
+	${executable} -I "$defchain" -j "$@"
+}
+
+create_chain $iptables INPUT ${INPUT_CHAIN}
+create_chain $iptables FORWARD ${FORWARD_CHAIN}
+create_chain $iptables OUTPUT ${OUTPUT_CHAIN}
+create_chain $ip6tables INPUT ${INPUT_CHAIN}
+create_chain $ip6tables FORWARD ${FORWARD_CHAIN}
+create_chain $ip6tables OUTPUT ${OUTPUT_CHAIN}

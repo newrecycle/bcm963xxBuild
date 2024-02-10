@@ -1,0 +1,19 @@
+# This file is Confidential Information of Cujo LLC.
+# Copyright (c) 2019 CUJO LLC. All rights reserved.
+
+# This file contains some shell environmental variables which are platform
+# specific and which are needed for rabid to work properly. It is meant to
+# be sourced by other rabid scripts
+
+CUJO_HOME=${CUJO_HOME:-}
+if [ -z "$CUJO_HOME" ]; then
+    CUJO_HOME=/opt/cujo
+fi
+export CUJO_HOME
+
+export RABID_PID_FILE=/var/run/rabid.pid
+export RABID_LOG_FOLDER=/var/log/rabid
+
+# Non-login shell is defining neither PATH nor LD_LIBRARY_PATH
+export PATH="${CUJO_HOME}/bin:/home/bin:/home/scripts:/opt/bin:/bin:/sbin:/usr/bin:/usr/local/jamvm/bin:/opt/scripts"
+export LD_LIBRARY_PATH="${CUJO_HOME}/lib:${CUJO_HOME}/lib/lua:/lib"

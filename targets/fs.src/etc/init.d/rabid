@@ -1,0 +1,124 @@
+#!/bin/sh
+# This file is Confidential Information of Cujo LLC.
+# Copyright (c) 2018 CUJO LLC. All rights reserved.
+set -euo pipefail
+export CUJO_HOME=/opt/cujo
+
+RABID_PID_FILE=/var/run/rabid.pid
+RABIDCTL_SOCK=/var/run/cujo/rabidctl.sock
+date_tries=20
+
+start() {
+    tries=$date_tries
+
+    while [ $tries -gt 0 ] && [ "$(date +%Y)" -lt 2019 ]
+    do
+        tries=$((tries - 1))
+        echo "Date: $(date -I), waiting for correct date to start rabid, $((tries)) tries left"
+        sleep 5
+    done
+    if [ $tries -eq 0 ]
+    then
+        echo "Date was not set correctly after $date_tries tries, aborting"
+        exit
+    fi
+
+    if [ -f ${RABID_PID_FILE} ]; then
+        echo "Rabid is already running or exited improperly. In the latter case remove ${RABID_PID_FILE} manually."
+        exit 1;
+    fi
+
+    . "$CUJO_HOME/bin/rabid-sh-env"
+    . "$CUJO_HOME/bin/nf-chains"
+
+    # NFLua
+    insmod /lib/modules/*/lunatik.ko || true
+    insmod /lib/modules/*/luabase64.ko || true
+    insmod /lib/modules/*/luadata.ko || true
+    insmod /lib/modules/*/luajson.ko || true
+    insmod /lib/modules/*/nflua.ko || true
+
+    # cujo-ipset
+    insmod /lib/modules/*/ip_set.ko || true
+    insmod /lib/modules/*/ip_set_hash_ip.ko || true
+    insmod /lib/modules/*/ip_set_hash_mac.ko || true
+    insmod /lib/modules/*/xt_set.ko || true
+
+    # For the "conntrack" tool to work
+    insmod /lib/modules/*/kernel/net/netfilter/nf_conntrack.ko || true
+    insmod /lib/modules/*/kernel/net/netfilter/nf_conntrack_netlink.ko || true
+
+    # IPv6 netfilter rule support
+    insmod /lib/modules/*/kernel/net/ipv6/netfilter/ip6table_filter.ko || true
+
+    # Conntrack support
+    insmod /lib/modules/*/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko || true
+    insmod /lib/modules/*/kernel/net/ipv4/netfilter/nf_conntrack_ipv4.ko || true
+    insmod /lib/modules/*/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko || true
+    insmod /lib/modules/*/kernel/net/ipv6/netfilter/nf_conntrack_ipv6.ko || true
+
+    insmod /lib/modules/*/kernel/net/netfilter/xt_connbytes.ko || true
+
+    # enable fastpath
+    fcctl enable
+
+    $iptables -t mangle -I PREROUTING -p tcp -m connbytes --connbytes 0:16 --connbytes-mode packets --connbytes-dir both -j SKIPLOG
+    $ip6tables -t mangle -I PREROUTING -p tcp -m connbytes --connbytes 0:16 --connbytes-mode packets --connbytes-dir both -j SKIPLOG
+
+    setup-chains
+    rabid 2>&1 | tinylog -t /var/log/rabid/ &
+    jobs -p > ${RABID_PID_FILE}
+
+    connection_tries=30
+
+    tries=$connection_tries
+    while [ $tries -gt 0 ] && ! "$CUJO_HOME/bin/rabidsh" 2>/dev/null; do
+        tries=$((tries - 1))
+        echo >&2 "Waiting for Rabid to start up ($tries tries remaining)..."
+        sleep 1
+    done
+    if [ $tries -eq 0 ]; then
+        echo >&2 "Rabid doesn't seem to be running!"
+        exit 1
+    fi
+
+    echo "Rabid started, to check log: cat /var/log/rabid/current"
+    echo "               to shutdown:  /etc/init.d/rabid stop"
+    echo
+    echo "NOTE: no features are enabled!"
+    echo "            feature control: . $CUJO_HOME/bin/rabid-sh-env && \\"
+    echo "                             rabid-feature <on|off> <feature>"
+}
+
+stop() {
+    pid=$(cat ${RABID_PID_FILE})
+    if [ -n "$pid" ] && kill -0 $pid 2>/dev/null; then
+        kill $pid
+        printf "Waiting for Rabid to shut down..."
+        while kill -0 $pid 2>/dev/null; do
+            printf .
+            sleep 1
+        done
+        echo
+    fi
+    rm -f ${RABID_PID_FILE} ${RABIDCTL_SOCK}
+}
+
+
+case "${1:-}" in
+    start)
+        start
+        ;;
+
+    stop)
+        stop
+        ;;
+
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac

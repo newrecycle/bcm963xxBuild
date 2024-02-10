@@ -1,0 +1,23 @@
+diff -ur orig_arptables-v0.0.4/Makefile arptables-v0.0.4/Makefile
+--- orig_arptables-v0.0.4/Makefile	2013-01-10 12:09:39.000000000 -0800
++++ arptables-v0.0.4/Makefile	2019-07-30 18:07:25.731305050 -0700
+@@ -1,10 +1,16 @@
+ ARPTABLES_VERSION:=0.0.4
+ 
++CURR_DIR := $(shell pwd)
++BUILD_DIR:=$(subst /userspace, /userspace,$(CURR_DIR))
++BUILD_DIR:=$(word 1, $(BUILD_DIR))
++
++include $(BUILD_DIR)/make.common
++
+ KERNEL_DIR:=./
+ # default paths
+-PREFIX:=/usr/local
+-LIBDIR:=$(PREFIX)/lib
+-BINDIR:=$(PREFIX)/sbin
++PREFIX:=$(INSTALL_DIR)
++LIBDIR:=$(PREFIX)/lib/gpl
++BINDIR:=$(PREFIX)/bin
+ MANDIR:=$(PREFIX)/man
+ INITDIR:=/etc/rc.d/init.d
+ SYSCONFIGDIR:=/etc/sysconfig
